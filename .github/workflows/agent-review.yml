@@ -36,7 +36,7 @@ jobs:
         run: |
           python3 << 'EOF'
           import os
-          from openai import OpenAI
+          #from openai import OpenAI
 
           def load_fail_message():
               try:
@@ -49,21 +49,21 @@ jobs:
               if not os.environ.get("OPENAI_API_KEY"):
                   raise RuntimeError("OPENAI_API_KEY is missing")
 
-              client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+              #client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
               with open("prompt.txt") as f:
                   prompt = f.read()
 
-              resp = client.chat.completions.create(
-                  model="gpt-4.1",
-                  messages=[
-                      {"role": "system", "content": "You are a strict but humorous code review agent."},
-                      {"role": "user", "content": prompt}
-                  ],
-                  temperature=0.3
-              )
+              #resp = client.chat.completions.create(
+              #    model="gpt-4.1",
+              #    messages=[
+              #        {"role": "system", "content": "You are a strict but humorous code review agent."},
+              #        {"role": "user", "content": prompt}
+              #    ],
+              #    temperature=0.3
+              #)
 
-              review = resp.choices[0].message.content
+              #review = resp.choices[0].message.content
 
           except Exception as e:
               print("AI Review failed:", e)
