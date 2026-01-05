@@ -1,0 +1,61 @@
+name: Issue to Branch
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: read
+
+jobs:
+  issue_to_branch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - name: Create branch from issue
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          git checkout -b issues-${ISSUE_NUMBER}
+
+      - name: Create issue markdown file
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+        run: |
+          cat <<EOF > issues-${ISSUE_NUMBER}.md
+          # Issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}
+
+          **Author:** ${ISSUE_AUTHOR}  
+          **URL:** ${ISSUE_URL}
+
+          ---
+
+          ## Description
+
+          ${ISSUE_BODY}
+          EOF
+
+      - name: Commit issue file
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add issues-${ISSUE_NUMBER}.md
+          git commit -m "chore(issue): bootstrap issue #${ISSUE_NUMBER}"
+
+      - name: Push branch
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          git push origin issues-${ISSUE_NUMBER}
