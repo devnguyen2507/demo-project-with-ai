@@ -1,0 +1,82 @@
+name: Agent Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ai_review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR diff
+        id: diff
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          git diff origin/${{ github.base_ref }}...HEAD > pr.diff
+
+      - name: Load review prompt
+        run: |
+          cat .ai/agent-review.md > prompt.txt
+          echo "\n\n---\n\nCode Diff:\n" >> prompt.txt
+          cat pr.diff >> prompt.txt
+                
+      - name: Run AI review
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python3 << 'EOF'
+          import os
+          from openai import OpenAI
+
+          def load_fail_message():
+              try:
+                  with open(".ai/agent-review-fail.md") as f:
+                      return f.read()
+              except Exception:
+                  return "AI review failed, and even the fail message is missing."
+
+          try:
+              if not os.environ.get("OPENAI_API_KEY"):
+                  raise RuntimeError("OPENAI_API_KEY is missing")
+
+              client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+
+              with open("prompt.txt") as f:
+                  prompt = f.read()
+
+              resp = client.chat.completions.create(
+                  model="gpt-4.1",
+                  messages=[
+                      {"role": "system", "content": "You are a strict but humorous code review agent."},
+                      {"role": "user", "content": prompt}
+                  ],
+                  temperature=0.3
+              )
+
+              review = resp.choices[0].message.content
+
+          except Exception as e:
+              print("AI Review failed:", e)
+              review = load_fail_message()
+
+          with open("review.txt", "w") as f:
+              f.write(review)
+          EOF
+
+
+      - name: Comment review on PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body-file review.txt
